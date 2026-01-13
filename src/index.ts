@@ -1,18 +1,45 @@
 /**
- * Welcome to Cloudflare Workers! This is your first worker.
+ * TaskWorker - TaskChampion Sync Server on Cloudflare Workers
  *
- * - Run `npm run dev` in your terminal to start a development server
- * - Open a browser tab at http://localhost:8787/ to see your worker in action
- * - Run `npm run deploy` to publish your worker
- *
- * Bind resources to your worker in `wrangler.jsonc`. After adding bindings, a type definition for the
- * `Env` object can be regenerated with `npm run cf-typegen`.
- *
- * Learn more at https://developers.cloudflare.com/workers/
+ * Implements the TaskChampion sync protocol for Taskwarrior 3.0+
+ * https://gothenburgbitfactory.org/taskchampion/http.html
  */
 
-export default {
-  async fetch(request, env, ctx): Promise<Response> {
-    return new Response("Hello World!");
-  },
-} satisfies ExportedHandler<Env>;
+import { Hono } from "hono";
+import {
+  addSnapshot,
+  addVersion,
+  getChildVersion,
+  getSnapshot,
+} from "./handlers";
+import { Storage } from "./storage";
+
+const app = new Hono<{ Bindings: Cloudflare.Env }>();
+
+// Health check
+app.get("/", (c) => {
+  return c.text("TaskWorker - TaskChampion Sync Server");
+});
+
+// Sync protocol endpoints
+app.post("/v1/client/add-version/:parentVersionId", async (c) => {
+  const storage = new Storage(c.env.DB);
+  return addVersion(c, storage);
+});
+
+app.get("/v1/client/get-child-version/:parentVersionId", async (c) => {
+  const storage = new Storage(c.env.DB);
+  return getChildVersion(c, storage);
+});
+
+app.post("/v1/client/add-snapshot/:versionId", async (c) => {
+  const storage = new Storage(c.env.DB);
+  return addSnapshot(c, storage);
+});
+
+app.get("/v1/client/snapshot", async (c) => {
+  const storage = new Storage(c.env.DB);
+  return getSnapshot(c, storage);
+});
+
+export default app;
