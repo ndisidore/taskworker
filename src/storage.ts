@@ -152,11 +152,18 @@ export class Storage {
       }>();
 
     if (version) {
+      // D1 returns blobs as ArrayBuffer, ensure proper type
+      const historySegment =
+        version.history_segment instanceof ArrayBuffer
+          ? version.history_segment
+          : new Uint8Array(version.history_segment as unknown as number[])
+              .buffer;
+
       return {
         found: true,
         versionId: version.version_id,
         parentVersionId: version.parent_version_id ?? NIL_VERSION_ID,
-        historySegment: version.history_segment,
+        historySegment,
       };
     }
 
@@ -253,10 +260,16 @@ export class Storage {
       return { found: false };
     }
 
+    // D1 returns blobs as ArrayBuffer, ensure proper type
+    const snapshotData =
+      snapshot.snapshot_data instanceof ArrayBuffer
+        ? snapshot.snapshot_data
+        : new Uint8Array(snapshot.snapshot_data as unknown as number[]).buffer;
+
     return {
       found: true,
       versionId: snapshot.version_id,
-      snapshotData: snapshot.snapshot_data,
+      snapshotData,
     };
   }
 
