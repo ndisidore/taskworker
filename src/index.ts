@@ -12,14 +12,18 @@ import {
   getChildVersion,
   getSnapshot,
 } from "./handlers";
+import { clientAllowlist } from "./middleware/auth";
 import { Storage } from "./storage";
 
 const app = new Hono<{ Bindings: Cloudflare.Env }>();
 
-// Health check
+// Health check (no auth required)
 app.get("/", (c) => {
   return c.text("TaskWorker - TaskChampion Sync Server");
 });
+
+// Apply client allowlist middleware to all /v1 routes
+app.use("/v1/*", clientAllowlist());
 
 // Sync protocol endpoints
 app.post("/v1/client/add-version/:parentVersionId", async (c) => {

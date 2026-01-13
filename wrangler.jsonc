@@ -22,7 +22,7 @@
       "database_id": "local",
       "migrations_dir": "migrations"
     }
-  ]
+  ],
   /**
    * Smart Placement
    * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
@@ -40,7 +40,18 @@
    * Note: Use secrets to store sensitive data.
    * https://developers.cloudflare.com/workers/configuration/secrets/
    */
-  // "vars": {  "MY_VARIABLE": "production_value" }
+  "vars": {
+    /**
+     * Optional: Comma-separated list of allowed client IDs (UUIDs).
+     * If set, only these clients can access the sync API.
+     * If not set or empty, all clients are allowed (open mode).
+     *
+     * Example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890,11111111-2222-3333-4444-555555555555"
+     *
+     * For production, consider using `wrangler secret put ALLOWED_CLIENT_IDS` instead.
+     */
+    "ALLOWED_CLIENT_IDS": ""
+  }
   /**
    * Static Assets
    * https://developers.cloudflare.com/workers/static-assets/binding/
