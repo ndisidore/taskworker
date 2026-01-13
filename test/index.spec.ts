@@ -53,6 +53,38 @@ describe("TaskWorker Sync Server", () => {
       expect(response.status).toBe(400);
     });
 
+    it("returns 400 with bad content type", async () => {
+      const response = await SELF.fetch(
+        `https://example.com/v1/client/add-version/${NIL_VERSION_ID}`,
+        {
+          method: "POST",
+          headers: {
+            [Headers.CLIENT_ID]: TEST_CLIENT_ID,
+            "Content-Type": "text/plain",
+          },
+          body: new Uint8Array([1, 2, 3]),
+        },
+      );
+
+      expect(response.status).toBe(400);
+    });
+
+    it("returns 400 with empty body", async () => {
+      const response = await SELF.fetch(
+        `https://example.com/v1/client/add-version/${NIL_VERSION_ID}`,
+        {
+          method: "POST",
+          headers: {
+            [Headers.CLIENT_ID]: TEST_CLIENT_ID,
+            "Content-Type": ContentType.HISTORY_SEGMENT,
+          },
+          body: new Uint8Array([]),
+        },
+      );
+
+      expect(response.status).toBe(400);
+    });
+
     it("returns 409 on parent version conflict", async () => {
       // First, add a version
       const firstResponse = await SELF.fetch(
@@ -90,6 +122,17 @@ describe("TaskWorker Sync Server", () => {
   });
 
   describe("Get Child Version", () => {
+    it("returns 400 without client ID", async () => {
+      const response = await SELF.fetch(
+        `https://example.com/v1/client/get-child-version/${NIL_VERSION_ID}`,
+        {
+          method: "GET",
+        },
+      );
+
+      expect(response.status).toBe(400);
+    });
+
     it("returns 404 when no versions exist", async () => {
       const newClientId = "33333333-3333-3333-3333-333333333333";
 
@@ -179,6 +222,54 @@ describe("TaskWorker Sync Server", () => {
 
       expect(getResponse.status).toBe(404);
     });
+
+    it("returns 410 when version is gone (pruned)", async () => {
+      const clientId = "55555555-5555-5555-5555-555555555556";
+      const unknownVersionId = "ffffffff-ffff-ffff-ffff-ffffffffffff";
+
+      // Add a version
+      const addResponse = await SELF.fetch(
+        `https://example.com/v1/client/add-version/${NIL_VERSION_ID}`,
+        {
+          method: "POST",
+          headers: {
+            [Headers.CLIENT_ID]: clientId,
+            "Content-Type": ContentType.HISTORY_SEGMENT,
+          },
+          body: new Uint8Array([1, 2, 3]),
+        },
+      );
+      expect(addResponse.status).toBe(200);
+      const versionId = addResponse.headers.get(Headers.VERSION_ID);
+
+      // Add a snapshot at that version
+      const snapshotResponse = await SELF.fetch(
+        `https://example.com/v1/client/add-snapshot/${versionId}`,
+        {
+          method: "POST",
+          headers: {
+            [Headers.CLIENT_ID]: clientId,
+            "Content-Type": ContentType.SNAPSHOT,
+          },
+          body: new Uint8Array([100, 101, 102]),
+        },
+      );
+      expect(snapshotResponse.status).toBe(200);
+
+      // Try to get child of an unknown version (simulates pruned history)
+      // This should return 410 because a snapshot exists but the version doesn't
+      const getResponse = await SELF.fetch(
+        `https://example.com/v1/client/get-child-version/${unknownVersionId}`,
+        {
+          method: "GET",
+          headers: {
+            [Headers.CLIENT_ID]: clientId,
+          },
+        },
+      );
+
+      expect(getResponse.status).toBe(410);
+    });
   });
 
   describe("Snapshots", () => {
@@ -267,6 +358,98 @@ describe("TaskWorker Sync Server", () => {
             "Content-Type": ContentType.SNAPSHOT,
           },
           body: new Uint8Array([1, 2, 3]),
+        },
+      );
+
+      expect(response.status).toBe(400);
+    });
+
+    it("returns 400 without client ID when adding snapshot", async () => {
+      const response = await SELF.fetch(
+        "https://example.com/v1/client/add-snapshot/00000000-0000-0000-0000-000000000001",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": ContentType.SNAPSHOT,
+          },
+          body: new Uint8Array([1, 2, 3]),
+        },
+      );
+
+      expect(response.status).toBe(400);
+    });
+
+    it("returns 400 without client ID when getting snapshot", async () => {
+      const response = await SELF.fetch(
+        "https://example.com/v1/client/snapshot",
+        {
+          method: "GET",
+        },
+      );
+
+      expect(response.status).toBe(400);
+    });
+
+    it("returns 400 with bad content type when adding snapshot", async () => {
+      const clientId = "88888888-8888-8888-8888-888888888889";
+
+      // First add a version
+      const addVersionResponse = await SELF.fetch(
+        `https://example.com/v1/client/add-version/${NIL_VERSION_ID}`,
+        {
+          method: "POST",
+          headers: {
+            [Headers.CLIENT_ID]: clientId,
+            "Content-Type": ContentType.HISTORY_SEGMENT,
+          },
+          body: new Uint8Array([1, 2, 3]),
+        },
+      );
+      const versionId = addVersionResponse.headers.get(Headers.VERSION_ID);
+
+      // Try to add snapshot with wrong content type
+      const response = await SELF.fetch(
+        `https://example.com/v1/client/add-snapshot/${versionId}`,
+        {
+          method: "POST",
+          headers: {
+            [Headers.CLIENT_ID]: clientId,
+            "Content-Type": "text/plain",
+          },
+          body: new Uint8Array([1, 2, 3]),
+        },
+      );
+
+      expect(response.status).toBe(400);
+    });
+
+    it("returns 400 with empty body when adding snapshot", async () => {
+      const clientId = "88888888-8888-8888-8888-88888888888a";
+
+      // First add a version
+      const addVersionResponse = await SELF.fetch(
+        `https://example.com/v1/client/add-version/${NIL_VERSION_ID}`,
+        {
+          method: "POST",
+          headers: {
+            [Headers.CLIENT_ID]: clientId,
+            "Content-Type": ContentType.HISTORY_SEGMENT,
+          },
+          body: new Uint8Array([1, 2, 3]),
+        },
+      );
+      const versionId = addVersionResponse.headers.get(Headers.VERSION_ID);
+
+      // Try to add snapshot with empty body
+      const response = await SELF.fetch(
+        `https://example.com/v1/client/add-snapshot/${versionId}`,
+        {
+          method: "POST",
+          headers: {
+            [Headers.CLIENT_ID]: clientId,
+            "Content-Type": ContentType.SNAPSHOT,
+          },
+          body: new Uint8Array([]),
         },
       );
 
